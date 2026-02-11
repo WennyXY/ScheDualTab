@@ -276,11 +276,3 @@ def eval_exactmatch(pred_list, gt_list):
             wrong_instance_id.append(idx)
     return acc/len(pred_list), wrong_instance_id
 
-
-def eval_bertscore(pred_list, gt_list, model_type="bert-base-uncased"):
-    bertscore = load('bertscore', cache_dir='/data/gpfs/projects/punim1672/HF_cache/')
-    # predictions = ["hello there", "general kenobi"]
-    # references = ["hello there", "general kenobi"]
-    results = bertscore.compute(predictions=pred_list, references=gt_list, model_type=model_type)
-    # {'precision': [1.0, 1.0], 'recall': [1.0, 1.0], 'f1': [1.0, 1.0], 'hashcode': 'distilbert-base-uncased_L5_no-idf_version=0.3.10(hug_trans=4.10.3)'}
-    return results
