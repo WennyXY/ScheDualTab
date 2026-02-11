@@ -1,3 +1,7 @@
+# References:
+# https://github.com/TIGER-AI-Lab/TableCoT/blob/main/wikitableqa/outputs/compute_score.py
+# 
+
 import re
 import string
 import unicodedata
