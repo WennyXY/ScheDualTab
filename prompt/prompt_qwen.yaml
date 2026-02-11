@@ -1,0 +1,530 @@
+get_table_schema: |
+  ### SYSTEM
+  You are a Semantic Data Interpreter. Your goal is to explain a data table to a blind user. You must describe what the data *means*, not just its technical format.
+
+  ### INSTRUCTION
+  Analyse the provided Markdown Table and generate a "Semantic Summary" using the following rules:
+  1. **Identify the Subject**: Start by stating what entity this table describes (e.g., "This table lists employees," "This table tracks inventory levels").
+  2. **Describe Columns**: For each column, explain its purpose and one-sentence summary. Include 1-2 examples (first 1-2 rows) of the content for each column.
+  3. **Summarise Ranges**: Describe what it measures (money, count, age) and the approximate range.
+  4. Make your response complete, concise, and clear.
+
+  ### EXAMPLES
+
+  **Input Table:**
+  | SKU  | Category | Stock | Last_Audit |
+  | :--- | :---     | :---  | :---       |
+  | A-01 | Dairy    | 450   | 2023-12-01 |
+  | B-22 | Bakery   | 12    | 2023-12-05 |
+  | C-55 | Dairy    | 0     | 2024-01-10 |
+
+  **Response:**
+  This dataset outlines inventory items.
+  * **SKU**: A unique identifier for the product (e.g., A-01).
+  * **Category**: The product classification. Contains values: "Dairy" and "Bakery".
+  * **Stock**: Represents the quantity available. Values range from 0 (out of stock) to 450.
+  * **Last_Audit**: The date when the inventory was last checked, ranging from late 2023 to early 2024.
+
+  ---
+
+  ### CURRENT TASK
+
+  **Input Table:**
+  {table_md}
+
+  {table_info}
+
+  **Response:**
+
+
+info_summarisation_prompt_str: |
+  Summarise the following provided information clearly and concisely:
+  {table_info}
+  Return your one sentence summary directly: 
+
+query_rewrite_prompt: |
+  ### INSTRUCTION
+  Your task is to rewrite a user query to better align with a provided data schema.
+  1. Identify the relevant table columns from the schema that match the user's intent.
+  2. Rewrite the query using the column names provided.
+  3. Do not invent new columns. Do not change the meaing of the original query.
+
+  ### EXAMPLES
+  Schema:
+  Table: users
+  Columns: user_id (int), signup_date (date), is_premium (bool), total_spend (float), region (string)
+
+  User Query: "Show me high value customers from Europe who joined last year"
+  Response:
+    Relevant columns: "user_id", "signup_date", "total_spend", "region"
+    Rewritten Query: "Find users where region is 'Europe', signup_date is in the previous year, and total_spend is high."
+
+  ---
+
+  Schema:
+  Table: inventory
+  Columns: item_id (int), stock_count (int), warehouse_location (string), last_restock (date)
+
+  User Query: "Which items are running low in the NY warehouse?"
+  Response:
+    Relevant columns: "item_id", "stock_count", "warehouse_location"
+    Rewritten Query: "Find items where warehouse_location is 'NY' and stock_count is low."
+
+  ### CURRENT TASK
+  Table Info: {table_info}
+  Schema:
+  {table_schema}
+
+  User Query: "{query}"
+  Rewritten Query:
+
+logic_query_rewrite: |
+  You are a SQL Logic Assistant. Your goal is to translate a natural language question into a structured logical plan and provide a mapping hint.
+
+  **Instructions:**
+  1. Convert the [User Question] into a pseudo-SQL query using the [Table Schema].
+  2. If the user asks for a value (e.g., "red") that is not a column header, identify which column contains that value.
+  3. Output two fields:
+    - "Rewritten Query": The pseudo-SQL using keywords SELECT, WHERE, ORDER BY.
+    - "Mapping Logic": A precise rule stating which column maps to which concept.
+  4. If no matched column, do not change, do not guess without evidence. Keep the original noun words!!!
+
+  **Examples:**
+
+  Schema: [Title, Description, Price]
+  User Question: Show me the horror books.
+  Output:
+  Rewritten Query: SELECT [Title] WHERE [Description] LIKE 'horror'
+  Mapping Logic: The concept 'horror' (genre) is found in the [Description] column.
+
+  Schema: [Event, Date, Details]
+  User Question: Who won the gold medal?
+  Output:
+  Rewritten Query: SELECT [Details] WHERE [Details] LIKE 'Gold Medal'
+  Mapping Logic: The winner and medal information is stored in the [Details] column.
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+
+  {table_exp}
+  User Question: "{query}"
+
+  Output Format:
+  Rewritten Query:
+  Mapping Logic:
+
+
+hints_augment: |
+  You are a SQL Logic Assistant. Your goal is to translate a natural language question into a structured logical plan and provide a mapping hint.
+
+  **Instructions:**
+  1. Convert the [User Question] into a pseudo-SQL query using the [Table Schema].
+  2. If the user asks for a value (e.g., "red") that is not a column header, identify which column contains that value.
+  3. Output "Mapping Logic Hints": A precise rule stating which column maps to which concept.
+  4. If no matched column, do not change, do not guess without evidence. Keep the original noun words!!!
+
+  **Examples:**
+
+  Schema: [Title, Description, Price]
+  User Question: Show me the horror books.
+  Output:
+  Mapping Logic Hints: The concept 'horror' (genre) is found in the [Description] column.
+
+  Schema: [Event, Date, Details]
+  User Question: Who won the gold medal?
+  Output:
+  Mapping Logic Hints: The winner and medal information is stored in the [Details] column.
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+
+  {table_exp}
+  User Question: "{query}"
+
+  Output Format:
+  Mapping Logic Hints:
+
+
+sql_query_rewrite: |
+  You are a SQL Logic Assistant. Your goal is to translate a natural language question into a structured logical plan and provide a mapping hint.
+
+  **Instructions:**
+  1. Convert the [User Question] into a pseudo-SQL query using the [Table Schema].
+  2. If the user asks for a value (e.g., "red") that is not a column header, identify which column contains that value.
+  3. Output "Rewritten Query": The pseudo-SQL using keywords SELECT, WHERE, ORDER BY.
+  4. If no matched column, do not change, do not guess without evidence. Keep the original noun words!!!
+
+  **Examples:**
+
+  Schema: [Title, Description, Price]
+  User Question: Show me the horror books.
+  Output:
+  Rewritten Query: SELECT [Title] WHERE [Description] LIKE 'horror'
+
+  Schema: [Event, Date, Details]
+  User Question: Who won the gold medal?
+  Output:
+  Rewritten Query: SELECT [Details] WHERE [Details] LIKE 'Gold Medal'
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+  {table_exp}
+  User Question: "{query}"
+
+  Output Format:
+  Rewritten Query:
+
+schema_align_query_rewrite: |
+  You are a Schema Alignment Assistant. Your goal is to rewrite a User Question to strictly use the terminology found in the provided Table Schema.
+
+  **Instructions:**
+  1. Read the [Table Schema] and [User Question] carefully.
+  2. Identify every noun or adjective in the question that refers to a specific column (e.g., "rich" -> [Net Worth], "where" -> [Location]).
+  3. Rewrite the question ensuring that EVERY column reference is replaced by its exact name from the schema, enclosed in square brackets [ ].
+  4. If no matched column, do not change, do not guess without evidence. Keep the original noun words!!!
+  5. Do not change the meaning or logic of the query; only swap the terms.
+  6. Output two fields:
+   - "Rewritten Query": The question with precise column names in [ ].
+   - "Column Hint": A short directive explaining where specific information is stored.
+
+  **Examples:**
+  Schema: [Cyclist, Team, Time]
+  Sample Rows: ["Lance Armstrong (USA)", "US Postal", "84h"]
+  User Question: Which country won the race?
+  Output:
+    Rewritten Question: Which [Cyclist] contains the country of the winner?
+    Column Hint: Country information is embedded in the [Cyclist] column (e.g., 'USA').
+
+  Schema: [Product, Specs, Cost]
+  Sample Rows: ["iPhone 14", "128GB Storage, Black", "$800"]
+  User Question: Find the black phone.
+  Output:
+    Rewritten Question: Which [Product] has 'Black' listed in [Specs]?
+    Column Hint: Color information is located in the [Specs] column.
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+  User Question: "{query}"
+
+  Output Format:
+    Rewritten Query:
+    Column Hint: 
+
+
+nl_query_rewrite: |
+  You are a Schema Alignment Assistant. Your goal is to rewrite a User Question to strictly use the terminology found in the provided Table Schema.
+
+  **Instructions:**
+  1. Read the [Table Schema] and [User Question] carefully.
+  2. Identify every noun or adjective in the question that refers to a specific column (e.g., "rich" -> [Net Worth], "where" -> [Location]).
+  3. Rewrite the question ensuring that EVERY column reference is replaced by its exact name from the schema, enclosed in square brackets [ ].
+  4. If no matched column, do not change, do not guess without evidence. Keep the original noun words!!!
+  5. Do not change the meaning or logic of the query; only swap the terms.
+  6. Output "Rewritten Query": The question with precise column names in [ ].
+
+  **Examples:**
+  Schema: [Cyclist, Team, Time]
+  Sample Rows: ["Lance Armstrong (USA)", "US Postal", "84h"]
+  User Question: Which country won the race?
+  Output:
+    Rewritten Question: Which [Cyclist] contains the country of the winner?
+
+  Schema: [Product, Specs, Cost]
+  Sample Rows: ["iPhone 14", "128GB Storage, Black", "$800"]
+  User Question: Find the black phone.
+  Output:
+    Rewritten Question: Which [Product] has 'Black' listed in [Specs]?
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+  User Question: "{query}"
+
+  Output Format:
+    Rewritten Query:
+
+query_format_prompt: |
+  You are a Query Refinement Specialist for Table QA tasks. Your goal is to translate ambiguous natural language user queries into precise, explicit, and logic-based instructions that a smaller Language Model can easily execute against a specific data table.
+
+  ### Instructions
+  1. Map Synonyms to Headers: Replace vague terms with exact column names from the provided schema (e.g., change "how much" to "retrieve value from 'Total_Cost'").
+  2. Decompose Logic: Break down complex reasoning into step-by-step instructions.
+    - Superlatives: "Best/Cheapest" -> "Sort by [Column] in [Asc/Desc] order and select the top row."
+    - Aggregations: "Total/Average" -> "Calculate the sum/mean of [Column]."
+    - Filtering: "In 2023" -> "Filter rows where 'Year' equals '2023'."
+  3. Remove Fluff: Strip out conversational filler (e.g., "Can you please tell me...", "I was wondering...").
+  4. Specify Output: Explicitly state what value or column should be returned.
+
+  ### Few-Shot Examples
+
+  **Example 1**
+  Schema: [Employee Name, Dept, Salary, Start Date]
+  User Query: "Who makes the most money in IT?"
+  Rewritten Query: Filter rows where 'Dept' is 'IT'. From those results, identify the row with the highest value in 'Salary'. Return the 'Employee Name'.
+
+  **Example 2**
+  Schema: [Product, Stock_Lvl, Price, Category]
+  User Query: "List the cheap electronics."
+  Rewritten Query: Filter rows where 'Category' contains 'electronics'. Sort these rows by 'Price' in ascending order. List the 'Product' and 'Price'.
+
+  **Example 3**
+  Schema: [City, Avg_Temp, Rainfall_mm]
+  User Query: "Is it wetter in Seattle or Austin?"
+  Rewritten Query: Retrieve the 'Rainfall_mm' value for the row where 'City' is 'Seattle' and the row where 'City' is 'Austin'. Compare the two values to determine which is higher.
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+  User Question: "{query}"
+
+  Output the Rewritten Query Only:
+  Rewritten Query:
+
+
+query_enhancement: |
+  You are given a question, a table schema, and first two rows of the table.
+
+  Do NOT rephrase the question.
+  Do NOT change its meaning.
+
+  Your task:
+  1. Identify relevant columns.
+  2. Identify required operations.
+  3. Express implicit conditions using column names.
+
+  ----
+  **Example 1**
+  Query: Which country had the most cyclists finish within the top 10?
+  Table Schema:
+  Name | Country | Rank | Time | Year
+
+  Output:
+  Relevant Columns: Country, Rank
+  Suggested Operations: Filter, Group, Count, Max
+  Conditions: Rank <= 10
+  ----
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+  User Question: "{query}"
+
+  Output only:
+  Relevant Columns:
+  Suggested Operations:
+  Conditions:
+
+query_enhancement_new: |
+  You are given a question, a table schema, and first two rows of the table.
+
+  Do NOT rephrase the question.
+  Do NOT change its meaning.
+
+  Your task:
+  1. Identify relevant columns.
+  2. Identify required operations.
+  3. Express implicit conditions using column names.
+  4. Type of Answer.
+  
+  ----
+  **Example 1**
+  Query: Which country had the most cyclists finish within the top 10?
+  Table Schema:
+  Name | Country | Rank | Time | Year
+
+  Output:
+  Relevant Columns: Country, Rank
+  Suggested Operations: Filter, Group, Count, Max
+  Conditions: Rank <= 10
+  Answer Constrain: One country name.
+  ----
+
+  ----
+  **Example 2**
+  Query: Did China have more gold medals than Japan in 2020?
+  Table Schema:
+  Country | Gold | Silver | Bronze | Year
+  First Two Rows:
+  China | 38 | 32 | 18 | 2020
+  Japan | 27 | 14 | 17 | 2020
+
+  Output:
+  ColumRelevant Columnsns: Country, Gold, Year
+  Suggested Operations: Filter, Compare
+  Conditions: Year == 2020; Country in {China, Japan}
+  Answer Constrain: Yes/No
+  ----
+
+  **Input:**
+  Table Info: {table_info}
+  Schema: 
+  {table_schema}
+  User Question: "{query}"
+
+  Output only:
+  Relevant Columns:
+  Suggested Operations:
+  Conditions:
+  Answer Constrain:
+
+text_prompt_str: |
+    You give a table and a query, your task is to answer the query based on the table information.
+
+    Table:
+    {table_md}
+
+    {table_info}
+
+    Based on the given table, answer the following question:
+    {query}
+
+    {additional_feedback}
+
+    Before output, make sure your answer exactly answer the query.
+
+    Output format:
+    "Final Answer: AnswerName1, AnswerName2...".
+    The final answer must be a number or entity names, as short as possible, without any explanation.
+
+
+tab_fact_prompt: |
+    You are given a table and a statement.
+    Your task is to decide whether the statement is supported by the table.
+
+    Rules:
+    - Use ONLY the information in the table.
+    - Do NOT use external knowledge.
+    - Read column headers and rows carefully.
+    - If the statement is always true based on the table, output ENTAILED.
+    - If the statement is false or contradicted by the table, output REFUTED.
+
+    Steps:
+    1. Find the table cells related to the statement.
+    2. Perform simple operations if needed (count, compare, max, min).
+    3. Decide the label.
+
+    Table:
+    Table:
+    {table_md}
+
+    {table_info}
+
+    Statement:
+    {query}
+
+    Output format:
+    Final Answer: [TRUE / FALSE]
+
+
+fact_checking_prompt: |
+    You are an expert fact-checking system capable of analysing structured tables and verifying natural language claims. Your goal is to determine if a given Statement is supported by the provided Table.
+
+    Table:
+    {table_md}
+
+    {table_info}
+
+    Based on the given table, verify the following statement:
+    {query}
+    
+    RULE:
+    If the statement can be supported by the table information, return TRUE, else return FALSE.
+
+    Output format:
+    Final Answer: [TRUE / FALSE]
+
+
+pandas_prompt_str: |
+  You are working with a pandas dataframe in Python. The name of the dataframe is `df`.
+  This is the result of `print(df.to_markdown())`:
+  {table_md}
+  Here's the input query: {query}.
+
+  Additional Guidelines:
+  - **Aggregated Rows**: Be cautious of rows that aggregate data such as 'total', 'sum', or 'average'.
+  Ensure these rows do not influence your results inappropriately.
+  - **Note**: All cells in the table should be considered as `object` data type, regardless of their appearance.
+  - **Note**: Do not make up column names. Only use the name of columns exactly as provided.
+  - **Note**: Return only valid pandas code. Do NOT import any library.
+
+  Given the df information and the input query, please follow these instructions:
+  {instruction_str}
+
+  Expression:
+
+
+response_synthesis_prompt: |
+  Given an input question, synthesise the final answer from the query results.
+  
+  Query: {query_str}
+  
+
+  Pandas Instructions (optional):
+  {pandas_instructions}
+  
+
+  Pandas Output: {pandas_output}
+
+
+  Output format:
+    "Final Answer: AnswerName1, AnswerName2...".
+    The final answer must be a number or entity names, as short as possible, without any explanation.
+
+
+tabfact_prompt_oneshot: |
+  Task: Determine if the Statement is supported by the Table.
+
+  ---
+  Example 1
+  Table:
+  Row 1: Rank: 1 | Nation: USA | Gold: 46 | Total: 104
+  Row 2: Rank: 2 | Nation: China | Gold: 38 | Total: 91
+  Row 3: Rank: 3 | Nation: Russia | Gold: 24 | Total: 82
+
+  Statement: "China won more Gold medals than Russia but fewer than the USA."
+
+  Reasoning: China has 38 Gold. Russia has 24 Gold. USA has 46 Gold. 38 is greater than 24 (China > Russia). 38 is less than 46 (China < USA). The statement is correct.
+  Final Answer: TRUE
+  ---
+
+  Target Task
+  Table:
+  {table_md}
+  
+  {table_info}
+
+  Statement: {query}
+
+  Output Format:
+  Reasoning: <brief logic>
+  Final Answer: [TRUE / FALSE]
+
+
+
+fact_checking_prompt1: |
+    Given a table and a statement, your task is to check is the statement is correct based on the given table.
+
+    Table:
+    {table_md}
+
+    {table_info}
+
+    Based on the given table, verify the following statement:
+    {query}
+    
+    RULE:
+    If the statement can be supported by the table information, return TRUE, else return FALSE.
+
+    Output format:
+    Final Answer: [TRUE / FALSE]
